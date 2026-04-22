@@ -1,6 +1,19 @@
 // ── Binder-style stacked pages ─────────────────────────────────────────
 // Obsidian-inspired stacked tabs styling
 
+// Noise texture data URI (subtle paper grain)
+$noise-data: "data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E";
+
+// Shadow layers
+$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+$shadow-glow: 0 0 0 2px var(--secondary), 0 0 20px rgba(var(--secondary-rgb), 0.15);
+
+// Timing
+$transition-fast: 150ms ease-out;
+$transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
 #stacked-pages-container {
   // Only show when binder is active (2+ tabs)
   &:not(.binder-active) {
@@ -23,7 +36,7 @@
 
 // ── Content push — make room for tab strips instead of overlaying ────
 // The JS toggles .has-binder-left / .has-binder-right on <body>
-$binder-width: 40px;
+$binder-width: 44px;
 
 body.has-binder-left .page {
   padding-left: $binder-width;
@@ -40,21 +53,23 @@ body.has-binder-right .page {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 0;
+  padding: 8px 0;
   justify-content: stretch;
   align-items: stretch;
   z-index: 100;
-  width: 40px;
+  width: 44px;
   height: 100%;
 }
 
 .binder-strip-left {
   align-self: flex-start;
+  padding-left: 4px;
 }
 
 .binder-strip-right {
   align-self: flex-end;
   margin-left: auto;
+  padding-right: 4px;
 }
 
 // ── Individual tab ──────────────────────────────────────────────────────
@@ -65,40 +80,77 @@ body.has-binder-right .page {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 8px 0;
+  padding: 10px 0;
   cursor: pointer;
-  background: var(--lightgray);
+  background: 
+    url($noise-data) repeat,
+    linear-gradient(175deg, var(--light) 0%, var(--lightgray) 100%);
+  background-blend-mode: overlay, normal;
   border: 1px solid var(--lightgray);
+  box-shadow: $shadow-sm;
   transition:
-    background 0.15s ease,
-    transform 0.15s ease,
-    border-color 0.15s ease;
+    background-color $transition-fast,
+    transform $transition-smooth,
+    box-shadow $transition-fast,
+    border-color $transition-fast;
   width: 100%;
   flex: 1;
   position: relative;
   writing-mode: vertical-lr;
   overflow: hidden;
+  border-radius: 0;
+  user-select: none;
 
   &:hover {
-    background: var(--light);
+    background: 
+      url($noise-data) repeat,
+      linear-gradient(175deg, var(--light) 0%, var(--light) 100%);
+    background-blend-mode: overlay, normal;
+    box-shadow: $shadow-md;
+    transform: scale(1.02);
+  }
+
+  &:active {
+    transform: scale(0.98);
   }
 }
 
+// Dragging state
+.binder-tab.binder-tab-dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+.binder-tab.binder-tab-drag-over {
+  border-color: var(--secondary);
+  box-shadow: $shadow-glow;
+}
+
 // ── Active Tab (The one matching current page) ──────────────────────────
+
 .binder-tab.binder-tab-active {
-  background: var(--light); // Match page background
+  background: 
+    url($noise-data) repeat,
+    var(--light);
+  background-blend-mode: overlay;
   z-index: 101;
   cursor: default;
+  box-shadow: $shadow-lg;
+
+  &:hover {
+    transform: none;
+    box-shadow: $shadow-lg;
+  }
 
   // Active accent on outward edge
   &.binder-tab-left {
-    border-right: none; // Blend with page
+    border-right: none;
     border-left: 3px solid var(--secondary);
     border-radius: 6px 0 0 6px;
   }
 
   &.binder-tab-right {
-    border-left: none; // Blend with page
+    border-left: none;
     border-right: 3px solid var(--secondary);
     border-radius: 0 6px 6px 0;
   }
@@ -110,49 +162,66 @@ body.has-binder-right .page {
 
   &.binder-tab-left {
     border-radius: 6px 0 0 6px;
-    // Accent on content-facing edge (Right)
     border-right: 2px solid var(--secondary);
     border-left: 1px solid var(--lightgray);
-
-    &:hover {
-      transform: translateX(4px);
-    }
   }
 
   &.binder-tab-right {
     border-radius: 0 6px 6px 0;
-    // Accent on content-facing edge (Left)
     border-left: 2px solid var(--secondary);
     border-right: 1px solid var(--lightgray);
-
-    &:hover {
-      transform: translateX(-4px);
-    }
   }
 }
 
 // ── Spine accent bar (Hidden, using borders) ────────────────────────────
 .binder-spine {
-  display: none;
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  background: var(--secondary);
+  border-radius: 2px;
+  opacity: 0.7;
+  transition: opacity $transition-fast, transform $transition-smooth;
+
+  .binder-tab-left & {
+    right: 4px;
+  }
+
+  .binder-tab-right & {
+    left: 4px;
+  }
+
+  .binder-tab:hover & {
+    opacity: 1;
+    transform: scaleY(1.1);
+  }
+
+  .binder-tab-active & {
+    opacity: 1;
+    width: 4px;
+  }
 }
 
 // ── Label ───────────────────────────────────────────────────────────────
 .binder-label {
-  font-size: 1rem;
-  line-height: 1.2;
+  font-family: var(--font-display, system-ui);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--darkgray);
   user-select: none;
-
-  // Rotate to read bottom-to-top
   transform: rotate(180deg);
   text-align: left;
+  padding: 0 2px;
 }
 
 .binder-tab-active .binder-label {
-  font-weight: bold;
+  font-weight: 600;
   color: var(--dark);
 }
 
@@ -168,20 +237,62 @@ body.has-binder-right .page {
   padding: 2px;
   flex-shrink: 0;
   opacity: 0;
-  transition:
-    opacity 0.15s ease,
-    color 0.15s ease;
-
-  // Rotate to match vertical text orientation
+  transition: opacity $transition-fast, color $transition-fast, background-color $transition-fast;
   transform: rotate(180deg);
 
   &:hover {
     color: var(--dark);
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(0, 0, 0, 0.08);
     border-radius: 4px;
   }
 }
 
 .binder-tab:hover .binder-close {
   opacity: 1;
+}
+
+// ── Page transition animations ──────────────────────────
+
+.binder-page-out {
+  animation: binder-page-out 300ms forwards;
+}
+
+.binder-page-in {
+  animation: binder-page-in 300ms forwards;
+}
+
+@keyframes binder-page-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+
+@keyframes binder-page-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// ── Mobile / touch adjustments ───────────────────────────────
+
+@media (max-width: 800px) {
+  #stacked-pages-container {
+    display: none;
+  }
+
+  body.has-binder-left .page,
+  body.has-binder-right .page {
+    padding-left: 0;
+    padding-right: 0;
+  }
 }

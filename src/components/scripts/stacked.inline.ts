@@ -138,7 +138,9 @@ function createTabElement(
 ): HTMLElement {
   const el = document.createElement("div");
   el.className = `binder-tab binder-tab-${side}`;
+  el.draggable = true;
   el.dataset.index = String(index);
+
   if (index === state.activeIndex) {
     el.classList.add("binder-tab-active");
   }
@@ -154,6 +156,7 @@ function createTabElement(
   const label = document.createElement("span");
   label.className = "binder-label";
   label.textContent = tab.title;
+  label.title = tab.title;
   el.appendChild(label);
 
   // Close button (only when 2+ tabs)
@@ -172,6 +175,52 @@ function createTabElement(
   // Click to navigate
   el.addEventListener("click", () => {
     navigateToTab(index);
+  });
+
+  el.addEventListener("dragstart", (e) => {
+    el.classList.add("binder-tab-dragging");
+    e.dataTransfer?.setData("text/plain", String(index));
+    e.dataTransfer!.effectAllowed = "move";
+  });
+
+  el.addEventListener("dragend", () => {
+    el.classList.remove("binder-tab-dragging");
+    document.querySelectorAll(".binder-tab-drag-over").forEach((t) => {
+      t.classList.remove("binder-tab-drag-over");
+    });
+  });
+
+  el.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = "move";
+    el.classList.add("binder-tab-drag-over");
+  });
+
+  el.addEventListener("dragleave", () => {
+    el.classList.remove("binder-tab-drag-over");
+  });
+
+  el.addEventListener("drop", (e) => {
+    e.preventDefault();
+    el.classList.remove("binder-tab-drag-over");
+    const fromIndex = parseInt(e.dataTransfer?.getData("text/plain") || "-1", 10);
+    if (fromIndex >= 0 && fromIndex !== index) {
+      const s = loadState();
+      const [moved] = s.tabs.splice(fromIndex, 1);
+      if (moved) {
+        const targetIndex = index > fromIndex ? index - 1 : index;
+        s.tabs.splice(targetIndex, 0, moved);
+        if (s.activeIndex === fromIndex) {
+          s.activeIndex = targetIndex;
+        } else if (fromIndex < s.activeIndex && targetIndex >= s.activeIndex) {
+          s.activeIndex--;
+        } else if (fromIndex > s.activeIndex && targetIndex <= s.activeIndex) {
+          s.activeIndex++;
+        }
+        saveState(s);
+        renderBinderUI();
+      }
+    }
   });
 
   return el;
@@ -257,13 +306,9 @@ function handleNavigation() {
 
     // Evict oldest tabs if over limit (evict from the opposite end of active)
     while (state.tabs.length > config.maxTabs) {
+      state.tabs.shift();
       if (state.activeIndex > 0) {
-        // Evict from the start
-        state.tabs.shift();
         state.activeIndex--;
-      } else {
-        // Evict from the end
-        state.tabs.pop();
       }
     }
   }
@@ -287,7 +332,9 @@ function init() {
   const resizeHandler = () => renderBinderUI();
   window.addEventListener("resize", resizeHandler);
   if (window.addCleanup) {
-    window.addCleanup(() => window.removeEventListener("resize", resizeHandler));
+    window.addCleanup(() => {
+      window.removeEventListener("resize", resizeHandler);
+    });
   }
 }
 
